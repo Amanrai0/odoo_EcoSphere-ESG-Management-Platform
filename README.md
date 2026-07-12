@@ -4,6 +4,7 @@ EcoSphere is an Environmental, Social, and Governance (ESG) management platform 
 
 ---
 
+
 ## 1. 8-Hour Demo Goals (MVP Checklist)
 To successfully demonstrate the concept, the MVP must deliver:
 - [ ] **Login**: Secure JWT-based authentication for employees, managers, and admins.
