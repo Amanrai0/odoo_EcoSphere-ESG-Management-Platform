@@ -1,0 +1,918 @@
+openapi: 3.0.0
+info:
+  title: EcoSphere ESG Management Platform API
+  description: API contract for the EcoSphere ESG Management Platform, integrating Environmental, Social, and Governance metrics with Gamification.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8069/api/v1
+    description: Local Odoo Development Server
+paths:
+  /auth/login:
+    post:
+      tags:
+        - "Ayush (UI, Analytics & Config)"
+      summary: User Login
+      description: Authenticate user credentials and return a JWT token.
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: employee@company.com
+                password:
+                  type: string
+                  format: password
+                  example: secure_password
+      responses:
+        '200':
+          description: Successful authentication
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    example: eyJhbGciOiJIUzI1NiIsIn...
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /profile:
+    get:
+      tags:
+        - "Ayush (UI, Analytics & Config)"
+      summary: Get User Profile
+      description: Retrieve the currently logged-in user's profile information, including their accumulated XP, points balance, and unlocked badges.
+      operationId: getProfile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Profile details retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+                  role:
+                    type: string
+                  department_id:
+                    type: string
+                    format: uuid
+                  xp:
+                    type: integer
+                    example: 1250
+                  points_balance:
+                    type: integer
+                    example: 750
+                  badges:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Badge'
+        '401':
+          description: Unauthorized
+
+  /departments:
+    get:
+      tags:
+        - "Ayush (UI, Analytics & Config)"
+      summary: List Departments
+      description: Retrieve all organization departments.
+      operationId: listDepartments
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of departments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Department'
+
+  /departments/scores:
+    get:
+      tags:
+        - "Ayush (UI, Analytics & Config)"
+      summary: Get ESG Scores
+      description: Returns aggregated ESG scores (Environmental, Social, Governance, and Overall totals) for all active departments.
+      operationId: getScores
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: ESG score analytics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  overall:
+                    $ref: '#/components/schemas/DepartmentScores'
+                  departments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        department_id:
+                          type: string
+                          format: uuid
+                        name:
+                          type: string
+                        scores:
+                          $ref: '#/components/schemas/DepartmentScores'
+
+  /carbon-transactions:
+    get:
+      tags:
+        - "Tanisha (Environmental)"
+      summary: List Carbon Transactions
+      description: Retrieve logged carbon transactions from ERP.
+      operationId: listCarbonTransactions
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of carbon emission logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CarbonTransaction'
+    post:
+      tags:
+        - "Tanisha (Environmental)"
+      summary: Log Carbon Transaction
+      description: Log a carbon emitting operation. If `settings.auto_emission_calculation` is enabled, the calculated emissions will be automatically populated using the matching Emission Factor.
+      operationId: createCarbonTransaction
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - erp_reference
+                - department_id
+                - source_type
+                - activity_amount
+                - emission_factor_id
+              properties:
+                erp_reference:
+                  type: string
+                  example: PO-90823
+                department_id:
+                  type: string
+                  format: uuid
+                source_type:
+                  type: string
+                  enum: [purchase, manufacturing, expense, fleet]
+                activity_amount:
+                  type: number
+                  format: float
+                  example: 120.5
+                emission_factor_id:
+                  type: string
+                  format: uuid
+                transaction_date:
+                  type: string
+                  format: date-time
+      responses:
+        '201':
+          description: Carbon transaction logged successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CarbonTransaction'
+
+  /carbon-transactions/calculate:
+    post:
+      tags:
+        - "Tanisha (Environmental)"
+      summary: Preview Carbon Calculation
+      description: Preview the calculated carbon footprint for a hypothetical activity size and emission factor without writing to the database.
+      operationId: calculateEmissionsPreview
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - source_type
+                - activity_amount
+                - emission_factor_id
+              properties:
+                source_type:
+                  type: string
+                  enum: [purchase, manufacturing, expense, fleet]
+                activity_amount:
+                  type: number
+                  format: float
+                  example: 120.5
+                emission_factor_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Calculated emissions projection
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  calculated_emissions:
+                    type: number
+                    format: float
+                    example: 322.94
+                  unit:
+                    type: string
+                    example: kg_co2
+
+  /csr-activities:
+    get:
+      tags:
+        - "Aman (Social & CSR)"
+      summary: List CSR Activities
+      description: Retrieve all active and past company CSR events.
+      operationId: listCsrActivities
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of CSR activities
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CsrActivity'
+    post:
+      tags:
+        - "Aman (Social & CSR)"
+      summary: Create CSR Activity
+      description: Schedule a new CSR initiative event (Admin/Manager only).
+      operationId: createCsrActivity
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - description
+                - category_id
+                - points_awarded
+                - max_participants
+                - date
+              properties:
+                title:
+                  type: string
+                  example: Tree Plantation Drive
+                description:
+                  type: string
+                  example: Planting saplings in the local community park.
+                category_id:
+                  type: string
+                  format: uuid
+                points_awarded:
+                  type: integer
+                  example: 50
+                max_participants:
+                  type: integer
+                  example: 20
+                date:
+                  type: string
+                  format: date-time
+      responses:
+        '201':
+          description: CSR activity created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CsrActivity'
+
+  /csr-activities/{id}/participate:
+    post:
+      tags:
+        - "Aman (Social & CSR)"
+      summary: Participate in CSR Activity
+      description: Join an active CSR activity. If the workspace has evidence requirements enabled, the participation submission must include a proof URL.
+      operationId: participateInCsrActivity
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                proof_url:
+                  type: string
+                  format: uri
+                  example: https://storage.ecosphere.local/proofs/tree_planting.jpg
+      responses:
+        '201':
+          description: Joined activity successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeParticipation'
+        '400':
+          description: Missing proof validation details (when settings toggle is active)
+
+  /csr-participations/{id}:
+    put:
+      tags:
+        - "Aman (Social & CSR)"
+      summary: Moderate CSR Participation
+      description: Approve or reject employee participation in CSR (Admin/Manager only). Approving validates proof, awards points/XP, and updates the department's Social Score.
+      operationId: moderateCsrParticipation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - approval_status
+              properties:
+                approval_status:
+                  type: string
+                  enum: [approved, rejected]
+      responses:
+        '200':
+          description: Status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeParticipation'
+
+  /compliance-issues:
+    get:
+      tags:
+        - "Kunal (Governance)"
+      summary: List Compliance Issues
+      description: Retrieve compliance issues with details and due-date warnings.
+      operationId: listComplianceIssues
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of compliance issues
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ComplianceIssue'
+    post:
+      tags:
+        - "Kunal (Governance)"
+      summary: Log Compliance Issue
+      description: Record a new regulatory/governance violation and assign ownership (Auditor/Manager only).
+      operationId: createComplianceIssue
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - audit_id
+                - severity
+                - description
+                - owner_id
+                - due_date
+              properties:
+                audit_id:
+                  type: string
+                  format: uuid
+                severity:
+                  type: string
+                  enum: [low, medium, high, critical]
+                description:
+                  type: string
+                  example: Unsecured hazardous waste containers stored behind depot 3.
+                owner_id:
+                  type: string
+                  format: uuid
+                due_date:
+                  type: string
+                  format: date
+      responses:
+        '201':
+          description: Issue logged successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComplianceIssue'
+
+  /policies/{id}/acknowledge:
+    post:
+      tags:
+        - "Kunal (Governance)"
+      summary: Acknowledge Policy
+      description: Record employee acknowledgement of a specific corporate policy.
+      operationId: acknowledgePolicy
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Acknowledgement stored successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  acknowledged_at:
+                    type: string
+                    format: date-time
+
+  /leaderboard:
+    get:
+      tags:
+        - "Ayush (UI, Analytics & Config)"
+      summary: Get Leaderboard Standings
+      description: Returns list of employees ordered by accumulated gamification XP/points.
+      operationId: getLeaderboard
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Gamification leaderboard
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LeaderboardEntry'
+
+  /rewards:
+    get:
+      tags:
+        - "Ayush (UI, Analytics & Config)"
+      summary: List Rewards
+      description: Retrieve catalog of redeemable incentives.
+      operationId: listRewards
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Catalog of rewards
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Reward'
+
+  /rewards/{id}/redeem:
+    post:
+      tags:
+        - "Ayush (UI, Analytics & Config)"
+      summary: Redeem Reward
+      description: Exchange accrued points for a reward checking stock limits and employee balance.
+      operationId: redeemReward
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Reward successfully redeemed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  remaining_points:
+                    type: integer
+                    example: 750
+                  reward_claimed:
+                    type: string
+                    example: Eco-friendly Water Bottle
+        '400':
+          description: Insufficient points balance or reward out of stock
+
+  /reports/custom:
+    post:
+      tags:
+        - "Ayush (UI, Analytics & Config)"
+      summary: Generate Custom Report
+      description: Compile dynamically filtered ESG audit reports exporting in PDF, Excel, or CSV formats.
+      operationId: generateCustomReport
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - filters
+                - format
+              properties:
+                filters:
+                  type: object
+                  properties:
+                    department_id:
+                      type: string
+                      format: uuid
+                    date_range:
+                      type: object
+                      properties:
+                        start:
+                          type: string
+                          format: date
+                        end:
+                          type: string
+                          format: date
+                    modules:
+                      type: array
+                      items:
+                        type: string
+                        enum: [environmental, social, governance]
+                format:
+                  type: string
+                  enum: [pdf, xls, csv]
+      responses:
+        '200':
+          description: Generated report document binary stream
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+                example: attachment; filename="esg_report.pdf"
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+
+  /settings:
+    get:
+      tags:
+        - "Ayush (UI, Analytics & Config)"
+      summary: Get Global Settings
+      description: Retrieve global system configurations and weights.
+      operationId: getSettings
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Active configurations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemSettings'
+    put:
+      tags:
+        - "Ayush (UI, Analytics & Config)"
+      summary: Update Global Settings
+      description: Modify toggles and weights parameter configurations (Admin only).
+      operationId: updateSettings
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SystemSettings'
+      responses:
+        '200':
+          description: System configurations updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemSettings'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Jane Doe
+        role:
+          type: string
+          enum: [employee, manager, auditor, admin]
+          example: employee
+        department_id:
+          type: string
+          format: uuid
+
+    Department:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Logistics
+        code:
+          type: string
+          example: LOG-01
+        employee_count:
+          type: integer
+          example: 45
+        status:
+          type: string
+          enum: [active, inactive]
+          example: active
+
+    DepartmentScores:
+      type: object
+      properties:
+        environmental_score:
+          type: number
+          format: float
+          example: 80.0
+        social_score:
+          type: number
+          format: float
+          example: 70.0
+        governance_score:
+          type: number
+          format: float
+          example: 90.0
+        total_score:
+          type: number
+          format: float
+          example: 80.0
+
+    CarbonTransaction:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        erp_reference:
+          type: string
+          example: PO-90823
+        department_id:
+          type: string
+          format: uuid
+        source_type:
+          type: string
+          enum: [purchase, manufacturing, expense, fleet]
+          example: fleet
+        activity_amount:
+          type: number
+          format: float
+          example: 120.5
+        calculated_emissions:
+          type: number
+          format: float
+          example: 322.94
+        transaction_date:
+          type: string
+          format: date-time
+
+    CsrActivity:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          example: Tree Plantation Drive
+        description:
+          type: string
+          example: Planting saplings in the local community park.
+        points_awarded:
+          type: integer
+          example: 50
+        max_participants:
+          type: integer
+          example: 20
+        date:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [draft, active, completed, cancelled]
+          example: active
+
+    EmployeeParticipation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        employee_id:
+          type: string
+          format: uuid
+        activity_id:
+          type: string
+          format: uuid
+        proof_url:
+          type: string
+          format: uri
+          nullable: true
+          example: https://storage.ecosphere.local/proofs/tree_planting.jpg
+        approval_status:
+          type: string
+          enum: [pending, approved, rejected]
+          example: pending
+        points_earned:
+          type: integer
+          example: 0
+
+    ComplianceIssue:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        audit_id:
+          type: string
+          format: uuid
+        severity:
+          type: string
+          enum: [low, medium, high, critical]
+          example: high
+        description:
+          type: string
+          example: Unsecured hazardous waste containers stored behind depot 3.
+        owner_id:
+          type: string
+          format: uuid
+        due_date:
+          type: string
+          format: date
+          example: '2026-08-01'
+        status:
+          type: string
+          enum: [open, resolved, overdue]
+          example: open
+
+    Badge:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Carbon Cutter
+        description:
+          type: string
+          example: Awarded for recording carbon footprint levels 20% below target limit.
+        icon:
+          type: string
+          example: /assets/badges/carbon_cutter.png
+
+    Reward:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Eco-friendly Water Bottle
+        description:
+          type: string
+          example: Premium vacuum-insulated stainless steel water bottle.
+        points_required:
+          type: integer
+          example: 500
+        stock:
+          type: integer
+          example: 12
+        status:
+          type: string
+          enum: [active, out_of_stock, inactive]
+          example: active
+
+    LeaderboardEntry:
+      type: object
+      properties:
+        rank:
+          type: integer
+          example: 1
+        employee_name:
+          type: string
+          example: Aman Verma
+        xp:
+          type: integer
+          example: 1250
+        department:
+          type: string
+          example: Logistics
+
+    SystemSettings:
+      type: object
+      properties:
+        auto_emission_calculation:
+          type: boolean
+          example: true
+        evidence_requirement:
+          type: boolean
+          example: true
+        badge_auto_award:
+          type: boolean
+          example: true
+        weight_environmental:
+          type: number
+          format: float
+          example: 0.4
+        weight_social:
+          type: number
+          format: float
+          example: 0.3
+        weight_governance:
+          type: number
+          format: float
+          example: 0.3
+
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: error
+        message:
+          type: string
+          example: Action failed due to validation rules.
