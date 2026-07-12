@@ -53,7 +53,7 @@ ChartJS.register(
   Filler
 );
 
-const API = 'http://localhost:8000/api/v1';
+const API = window.location.hostname === 'localhost' ? 'http://localhost:8000/api/v1' : 'http://127.0.0.1:8000/api/v1';
 
 function cookie(name) {
   return document.cookie.split('; ').find((row) => row.startsWith(`${name}=`))?.split('=')[1] || '';
@@ -757,7 +757,7 @@ function App() {
         {backendAuthError && (
           <div style={{ background: "rgba(245, 158, 11, 0.15)", border: "1px solid rgba(245, 158, 11, 0.3)", color: "#fbbf24", padding: "0.85rem 1.5rem", fontSize: "0.85rem", display: "flex", alignItems: "center", justifyTabContent: "space-between", gap: "1rem" }}>
             <span style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}><ShieldAlert size={16} /> {backendAuthError}</span>
-            <a href="http://localhost:8000/admin/" target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm" style={{ background: "#fbbf24", color: "#000", border: "none", marginLeft: "auto" }}>Login Admin</a>
+            <a href={window.location.hostname === 'localhost' ? 'http://localhost:8000/admin/' : 'http://127.0.0.1:8000/admin/'} target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm" style={{ background: "#fbbf24", color: "#000", border: "none", marginLeft: "auto" }}>Login Admin</a>
           </div>
         )}
 
